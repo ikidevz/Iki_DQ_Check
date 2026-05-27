@@ -1,0 +1,18 @@
+# Iki-DQ-Check · sample configuration (YAML — legacy format)
+# Used by CLI integration tests. Python config (.py) is preferred.
+
+pk_column: id
+
+ranges:
+  age: [0, 120]
+  salary: [0, 1000000]
+
+allowed:
+  status:
+    - active
+    - inactive
+
+patterns:
+  email: "^[\\w.+-]+@[\\w-]+\\.[a-z]{2,}$"
+
+# latest_timestamp intentionally omitted so FreshnessCheck skips (no CRITICAL failure)

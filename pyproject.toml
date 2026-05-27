@@ -1,0 +1,36 @@
+[build-system]
+requires      = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "iki-dq-check"
+version         = "0.1.0"
+description     = "A production-grade Python library and CLI tool for validating data quality"
+readme          = "README.MD"
+requires-python = ">=3.10"
+authors         = [{ name = "IkiDevz" }]
+dependencies    = []
+
+[project.optional-dependencies]
+yaml       = ["pyyaml>=6.0"]
+pandas     = ["pandas>=2.0"]
+polars     = ["polars>=0.20"]
+pyarrow    = ["pyarrow>=14.0"]
+duckdb     = ["duckdb>=0.10"]
+sqlalchemy = ["sqlalchemy>=2.0"]
+jupyter    = ["ipython>=8.0"]
+all-formats = ["pandas>=2.0","polars>=0.20","pyarrow>=14.0","duckdb>=0.10","sqlalchemy>=2.0"]
+dev         = ["pytest>=7.4","pandas>=2.0","pyarrow>=14.0"]
+
+[project.scripts]
+iki-dq-check = "Iki_DQ_Check.app:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-ra -q"

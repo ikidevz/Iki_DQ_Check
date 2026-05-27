@@ -1,0 +1,893 @@
+# iki-dq-check
+
+A production-grade Python library and CLI tool for validating data quality across 25 checks, organized into 3 progressive tiers — **Lite**, **Standard**, and **Advanced**.
+
+Use it from the CLI, import it directly as a library, or call it from a Jupyter notebook via the facade — which accepts every data format a data engineer works with: pandas, Polars, PyArrow, DuckDB, Parquet, CSV, JSON, SQLAlchemy, and SQLite.
+
+Config is **Python-native** — a typed `DQConfig` dataclass with full IDE autocomplete, real lambda rules, and zero YAML. No extra dependencies required on the core.
+
+---
+
+## Requirements
+
+- Python 3.10+
+- pytest (for running tests)
+
+```bash
+pip install pytest
+```
+
+The core framework runs on Python stdlib only. PyYAML is no longer required.
+
+### Install
+
+```bash
+# Core only
+pip install -e .
+
+# With dev tools and test deps
+pip install -e ".[dev]"
+
+# With specific data format support
+pip install -e ".[pandas]"
+pip install -e ".[polars]"
+pip install -e ".[duckdb]"
+pip install -e ".[sqlalchemy]"
+
+# Everything
+pip install -e ".[dev,all-formats,jupyter]"
+
+# Legacy YAML config support (optional, not recommended)
+pip install -e ".[yaml]"
+```
+
+### Optional — facade input formats
+
+The facade (`src/Iki_DQ_Check/facade.py`) uses lazy imports — install only what your stack needs:
+
+| Format                       | Install                                                      |
+| ---------------------------- | ------------------------------------------------------------ |
+| pandas DataFrame             | `pip install pandas` or `pip install -e ".[pandas]"`         |
+| Polars DataFrame / LazyFrame | `pip install polars` or `pip install -e ".[polars]"`         |
+| PyArrow Table                | `pip install pyarrow` or `pip install -e ".[pyarrow]"`       |
+| Parquet files                | `pip install pyarrow`                                        |
+| DuckDB relation              | `pip install duckdb` or `pip install -e ".[duckdb]"`         |
+| SQLAlchemy                   | `pip install sqlalchemy` or `pip install -e ".[sqlalchemy]"` |
+| SQLite                       | stdlib — no install needed                                   |
+| Jupyter HTML rendering       | `pip install ipython` or `pip install -e ".[jupyter]"`       |
+| Legacy YAML config           | `pip install pyyaml` or `pip install -e ".[yaml]"`           |
+
+---
+
+## Project Structure
+
+```
+iki-dq-check/
+│
+├── src/
+│   └── Iki_DQ_Check/
+│       ├── core/
+│       │   ├── __init__.py            # Re-exports public API
+│       │   ├── base.py                # DataCheck, CheckResult, Severity, CheckTier, QualityReport
+│       │   └── pipeline.py            # DataQualityPipeline, REGISTRY, TIER_MAP
+│       │
+│       ├── checks/
+│       │   ├── __init__.py            # Imports all check classes
+│       │   ├── lite.py                # NullCheck, PrimaryKeyCheck, DuplicateRowCheck,
+│       │   │                          #   DataTypeCheck, NumericRangeCheck
+│       │   ├── standard.py            # RegexCheck, DomainCheck, BusinessRuleCheck,
+│       │   │                          #   CrossColumnCheck, FreshnessCheck, VolumeCheck,
+│       │   │                          #   OutlierCheck, ReferentialIntegrityCheck
+│       │   └── advanced.py            # SchemaDriftCheck, DuplicateFileIngestionCheck,
+│       │                              #   HierarchyCheck, AuditColumnCheck,
+│       │                              #   CrossSystemConsistencyCheck, ReferenceDataCheck,
+│       │                              #   ChecksumCheck, DistributionCheck,
+│       │                              #   NegativeValueCheck, PercentageTotalCheck,
+│       │                              #   StringLengthCheck, CompletenessCheck
+│       │
+│       ├── cli/
+│       │   ├── __init__.py
+│       │   ├── args.py                # build_parser()
+│       │   ├── loaders.py             # load_data(), load_config(), coerce(),
+│       │   │                          #   resolve_config(), safe_eval_rule()
+│       │   ├── output.py              # print_summary(), print_list(), save_report(),
+│       │   │                          #   ANSI color helpers
+│       │   └── runner.py              # build_pipeline(), die(), main()
+│       │
+│       ├── config.py                  # DQConfig dataclass — Python-native config
+│       ├── facade.py                  # Universal input facade — check(), normalize(),
+│       │                              #   check_lite/standard/advanced(), RichQualityReport
+│       ├── app.py                     # CLI entry point — delegates to cli/runner.py
+│       └── __init__.py                # Top-level public re-exports
+│
+├── tests/
+│   ├── conftest.py                    # Shared fixtures, helpers, sample datasets
+│   ├── test_lite.py                   # Lite tier checks (5 checks)
+│   ├── test_standard.py               # Standard tier checks (8 checks)
+│   ├── test_advanced.py               # Advanced tier checks (12 checks)
+│   ├── test_pipeline.py               # Pipeline orchestration and QualityReport
+│   ├── test_registry.py               # REGISTRY, TIER_MAP, and check metadata
+│   ├── test_loaders.py                # Data/config loading and rule compilation
+│   ├── test_facade.py                 # Facade normalizers and check() entrypoint
+│   └── test_cli.py                    # CLI integration tests (subprocess)
+│
+├── sample_config.py                   # Reference Python config (replaces config.yaml)
+├── dq_facade_demo.ipynb               # Jupyter notebook — facade across all formats
+├── sample_data.json                   # Sample JSON dataset
+├── sample_data.csv                    # Sample CSV dataset
+├── pyproject.toml
+└── README.MD
+```
+
+---
+
+## Quick Start
+
+```bash
+# See all available checks
+iki-dq-check --list
+
+# Run Lite tier
+iki-dq-check --tier lite --file data.json --config sample_config.py
+
+# Run Standard tier (includes Lite)
+iki-dq-check --tier standard --file data.json --config sample_config.py
+
+# Run Advanced tier (includes Lite + Standard)
+iki-dq-check --tier advanced --file data.json --config sample_config.py
+
+# Run a single check
+iki-dq-check --check NullCheck --file data.json --config sample_config.py
+
+# Run multiple specific checks
+iki-dq-check --check NullCheck --check RegexCheck --check ChecksumCheck \
+             --file data.json --config sample_config.py
+
+# Save a JSON report
+iki-dq-check --tier advanced --file data.json --config sample_config.py \
+             --output report.json
+
+# Stop on first critical failure
+iki-dq-check --tier lite --file data.json --config sample_config.py --fail-fast
+
+# Use a CSV file instead
+iki-dq-check --tier standard --file data.csv --config sample_config.py
+
+# Custom pipeline name
+iki-dq-check --tier lite --file data.json --config sample_config.py \
+             --pipeline-name orders_daily
+```
+
+---
+
+## Tiers
+
+Tiers are **cumulative** — each tier includes everything below it.
+`--tier` accepts exactly one value per run.
+
+```
+--tier lite       →  5 checks   (Lite only)
+--tier standard   → 13 checks   (Lite + Standard)
+--tier advanced   → 25 checks   (Lite + Standard + Advanced)
+```
+
+### Lite — 5 checks
+
+The foundation. Catches the most common data problems.
+
+| Check               | What It Catches                            |
+| ------------------- | ------------------------------------------ |
+| `NullCheck`         | NULL or None values in any column          |
+| `PrimaryKeyCheck`   | Duplicate or null primary keys             |
+| `DuplicateRowCheck` | Fully identical rows                       |
+| `DataTypeCheck`     | Values that can't be cast to expected type |
+| `NumericRangeCheck` | Numbers outside `[min, max]` bounds        |
+
+### Standard — 8 additional checks (13 total)
+
+For production pipelines with SLAs and business rules.
+
+| Check                       | What It Catches                                      |
+| --------------------------- | ---------------------------------------------------- |
+| `RegexCheck`                | Values that fail a regex pattern (e.g. email format) |
+| `DomainCheck`               | Values outside an allowed set (e.g. status codes)    |
+| `BusinessRuleCheck`         | Row-level business logic violations                  |
+| `CrossColumnCheck`          | Relationships between columns (e.g. end > start)     |
+| `FreshnessCheck`            | Data arriving outside expected time window           |
+| `VolumeCheck`               | Row counts outside expected range                    |
+| `OutlierCheck`              | Statistical outliers via IQR method                  |
+| `ReferentialIntegrityCheck` | Foreign key values not in parent table               |
+
+### Advanced — 12 additional checks (25 total)
+
+For compliance, financial, and cross-system critical pipelines.
+
+| Check                         | What It Catches                                 |
+| ----------------------------- | ----------------------------------------------- |
+| `SchemaDriftCheck`            | Added or removed columns vs expected schema     |
+| `DuplicateFileIngestionCheck` | Same file loaded more than once                 |
+| `HierarchyCheck`              | Parent → child hierarchy violations             |
+| `AuditColumnCheck`            | Missing `created_by`, `updated_at`, etc.        |
+| `CrossSystemConsistencyCheck` | Row count mismatch between source and target    |
+| `ReferenceDataCheck`          | Unknown codes in master / reference data        |
+| `ChecksumCheck`               | SHA-256 hash mismatch between source and target |
+| `DistributionCheck`           | Mean, median, stddev report (informational)     |
+| `NegativeValueCheck`          | Negative values where not allowed               |
+| `PercentageTotalCheck`        | Percentages that don't sum to 100               |
+| `StringLengthCheck`           | Strings outside min/max length bounds           |
+| `CompletenessCheck`           | Missing expected partition keys or dates        |
+
+---
+
+## Configuration — Python Mode
+
+Config is a typed `DQConfig` dataclass defined in `src/Iki_DQ_Check/config.py`. No YAML, no string parsing — just Python with full IDE autocomplete on every field.
+
+### Minimal config
+
+```python
+from Iki_DQ_Check.config import DQConfig
+
+config = DQConfig(pk_column="id")
+```
+
+### Full reference config (`sample_config.py`)
+
+```python
+from datetime import datetime, timezone
+from Iki_DQ_Check.config import DQConfig
+
+config = DQConfig(
+
+    # ── LITE ────────────────────────────────────────────────────────────
+    pk_column="id",
+
+    schema={
+        "age":    "int",
+        "salary": "float",
+    },
+
+    ranges={
+        "age":    (0, 120),
+        "salary": (0, 1_000_000),
+    },
+
+    # ── STANDARD ────────────────────────────────────────────────────────
+    patterns={
+        "email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+    },
+
+    allowed={
+        "status": ["active", "inactive"],
+    },
+
+    rules={
+        "salary_positive": lambda r: (r.get("salary") or 0) > 0,
+        "name_not_empty":  lambda r: bool(r.get("name")),
+    },
+
+    cross_rules={
+        "working_age": lambda r: 18 <= (r.get("age") or 0) <= 65,
+    },
+
+    columns=["salary", "age"],
+    expected_min=1,
+    expected_max=10_000,
+
+    fk_column="dept",
+    reference_values=["Eng", "HR", "Fin", "Ops"],
+
+    latest_timestamp=datetime.now(timezone.utc),
+    max_delay_hours=24.0,
+
+    # ── ADVANCED ────────────────────────────────────────────────────────
+    expected_columns=["id", "name", "age", "salary", "email", "status", "dept"],
+    audit_columns=["created_by", "created_at", "updated_by", "updated_at"],
+
+    source_count=1000,
+    target_count=998,
+
+    source_payload="snapshot-v1",
+    target_payload="snapshot-v1",
+
+    code_column="status",
+    valid_codes=["active", "inactive", "pending"],
+
+    percentage_column="pct",
+
+    length_rules={
+        "name":  (1, 50),
+        "email": (5, 100),
+    },
+
+    partition_column="dept",
+    expected_partitions=["Eng", "HR", "Fin"],
+
+    valid_hierarchy={
+        "Asia":   ["Japan", "India", "China"],
+        "Europe": ["Germany", "France", "UK"],
+    },
+)
+```
+
+### DQConfig field reference
+
+Every field is optional and defaults to `None`, which causes the corresponding check to skip gracefully.
+
+#### Lite fields
+
+| Field         | Type               | Default | Used by                                                                | Description                                                                       |
+| ------------- | ------------------ | ------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `pk_column`   | `str`              | `"id"`  | `PrimaryKeyCheck`                                                      | Primary key column name                                                           |
+| `columns`     | `list[str]`        | `None`  | `NullCheck`, `OutlierCheck`, `NegativeValueCheck`, `DistributionCheck` | Columns to inspect. When `None`, `NullCheck` checks all columns                   |
+| `schema`      | `dict[str, str]`   | `None`  | `DataTypeCheck`                                                        | Expected Python type per column. Supported: `"int"`, `"float"`, `"str"`, `"bool"` |
+| `ranges`      | `dict[str, tuple]` | `None`  | `NumericRangeCheck`                                                    | Numeric bounds `(min, max)` per column. Use `None` for open bounds: `(0, None)`   |
+| `key_columns` | `list[str]`        | `None`  | `DuplicateRowCheck`                                                    | Columns to use for duplicate detection. Defaults to all columns when `None`       |
+
+#### Standard fields
+
+| Field              | Type                  | Default | Used by                     | Description                                                                                         |
+| ------------------ | --------------------- | ------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `patterns`         | `dict[str, str]`      | `None`  | `RegexCheck`                | Regex pattern per column, e.g. `{"email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$"}`                           |
+| `allowed`          | `dict[str, list]`     | `None`  | `DomainCheck`               | Allowed value set per column, e.g. `{"status": ["active", "inactive"]}`                             |
+| `rules`            | `dict[str, Callable]` | `None`  | `BusinessRuleCheck`         | Row-level predicates. Each callable receives a row dict and returns `True` (pass) or `False` (fail) |
+| `cross_rules`      | `dict[str, Callable]` | `None`  | `CrossColumnCheck`          | Cross-column predicates. Same signature as `rules` but for multi-column logic                       |
+| `latest_timestamp` | `datetime`            | `None`  | `FreshnessCheck`            | Timestamp of the most recent data record. Pass `datetime.now(timezone.utc)` for "fresh right now"   |
+| `max_delay_hours`  | `float`               | `24.0`  | `FreshnessCheck`            | Maximum acceptable data delay in hours                                                              |
+| `expected_min`     | `int`                 | `None`  | `VolumeCheck`               | Minimum acceptable row count                                                                        |
+| `expected_max`     | `int`                 | `None`  | `VolumeCheck`               | Maximum acceptable row count                                                                        |
+| `fk_column`        | `str`                 | `None`  | `ReferentialIntegrityCheck` | Foreign key column name                                                                             |
+| `reference_values` | `list`                | `None`  | `ReferentialIntegrityCheck` | Valid foreign key values (parent table values)                                                      |
+
+#### Advanced fields
+
+| Field                 | Type               | Default       | Used by                       | Description                                                                    |
+| --------------------- | ------------------ | ------------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| `expected_columns`    | `list[str]`        | `None`        | `SchemaDriftCheck`            | Expected column names. Added or removed columns are reported as drift          |
+| `file_name_column`    | `str`              | `"file_name"` | `DuplicateFileIngestionCheck` | Column that records the ingested file name                                     |
+| `parent_column`       | `str`              | `None`        | `HierarchyCheck`              | Parent column name for hierarchy validation                                    |
+| `child_column`        | `str`              | `None`        | `HierarchyCheck`              | Child column name for hierarchy validation                                     |
+| `valid_hierarchy`     | `dict[str, list]`  | `None`        | `HierarchyCheck`              | Valid parent → children mapping, e.g. `{"Asia": ["Japan", "India"]}`           |
+| `audit_columns`       | `list[str]`        | `None`        | `AuditColumnCheck`            | Columns that must be present and non-null, e.g. `["created_by", "created_at"]` |
+| `source_count`        | `int`              | `None`        | `CrossSystemConsistencyCheck` | Source system row count                                                        |
+| `target_count`        | `int`              | `None`        | `CrossSystemConsistencyCheck` | Target system row count                                                        |
+| `tolerance_pct`       | `float`            | `0.01`        | `CrossSystemConsistencyCheck` | Acceptable count mismatch as a fraction. `0.01` = 1%                           |
+| `source_payload`      | `str`              | `None`        | `ChecksumCheck`               | Source payload string for SHA-256 hashing                                      |
+| `target_payload`      | `str`              | `None`        | `ChecksumCheck`               | Target payload string for SHA-256 hashing                                      |
+| `code_column`         | `str`              | `None`        | `ReferenceDataCheck`          | Column containing reference codes                                              |
+| `valid_codes`         | `list`             | `None`        | `ReferenceDataCheck`          | Valid code values for `code_column`                                            |
+| `percentage_column`   | `str`              | `None`        | `PercentageTotalCheck`        | Column whose values must sum to 100                                            |
+| `expected_total`      | `float`            | `100.0`       | `PercentageTotalCheck`        | Expected percentage total                                                      |
+| `length_rules`        | `dict[str, tuple]` | `None`        | `StringLengthCheck`           | String length bounds `(min, max)` per column, e.g. `{"name": (1, 50)}`         |
+| `partition_column`    | `str`              | `None`        | `CompletenessCheck`           | Column that identifies data partitions (e.g. region, date)                     |
+| `expected_partitions` | `list`             | `None`        | `CompletenessCheck`           | All partition values that must be present in the data                          |
+
+### Using the config
+
+**CLI — pass the `.py` file path directly:**
+
+```bash
+iki-dq-check --tier advanced --file data.json --config sample_config.py
+```
+
+**Library — pass the instance to `check()`:**
+
+```python
+from Iki_DQ_Check import check
+from sample_config import config
+
+report = check(df, tier="advanced", config=config)
+```
+
+**Inline — no file needed:**
+
+```python
+from Iki_DQ_Check import check, DQConfig
+
+cfg = DQConfig(
+    pk_column="order_id",
+    ranges={"amount": (0, None)},
+    allowed={"status": ["pending", "fulfilled", "cancelled"]},
+    rules={
+        "amount_positive": lambda r: (r.get("amount") or 0) > 0,
+    },
+)
+
+report = check(df, tier="standard", config=cfg)
+```
+
+### to_kwargs()
+
+`DQConfig.to_kwargs()` returns a plain dict of all non-`None` fields, ready to unpack into `pipeline.run()` or `check()`. Always-included fields (`pk_column`, `max_delay_hours`, `tolerance_pct`, `expected_total`, `file_name_column`) are included even when at their defaults. Callables (`rules`, `cross_rules`) are passed through as-is.
+
+```python
+cfg = DQConfig(pk_column="id", ranges={"salary": (0, None)})
+
+# These are equivalent:
+report = check(df, tier="lite", config=cfg)
+report = check(df, tier="lite", **cfg.to_kwargs())
+report = pipeline.run(data, **cfg.to_kwargs())
+```
+
+### Convenience factory functions
+
+```python
+from Iki_DQ_Check.config import lite_config, standard_config, advanced_config
+
+cfg = lite_config("order_id", ranges={"amount": (0, None)})
+
+cfg = standard_config(
+    "order_id",
+    patterns={"email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$"},
+    allowed={"status": ["active", "inactive"]},
+)
+
+cfg = advanced_config(
+    "order_id",
+    expected_columns=["order_id", "amount", "status"],
+    audit_columns=["created_by", "created_at"],
+    source_count=10_000,
+    target_count=9_995,
+)
+```
+
+### Rule expressions from strings
+
+If you prefer string expressions over lambdas (e.g. when loading rules from a database or config store), use the helper methods. Both return `self` for chaining.
+
+```python
+cfg = DQConfig(pk_column="id").with_rules_from_expr(
+    salary_positive="salary > 0",
+    name_not_empty="name != ''",
+).with_cross_rules_from_expr(
+    end_after_start="end > start",
+)
+```
+
+Expressions are compiled with Python's `ast` module — no `eval()` is ever called.
+
+Supported operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`, `not`
+
+### Config source types accepted by `load_config()` and `check(config=...)`
+
+| Source                | How it's resolved                                      |
+| --------------------- | ------------------------------------------------------ |
+| `DQConfig` instance   | `.to_kwargs()` called directly                         |
+| `"my_config.py"` path | File is imported; `config` or `cfg` variable extracted |
+| `"config.yaml"` path  | Legacy YAML load (requires `pip install -e ".[yaml]"`) |
+| `dict`                | Passed through `resolve_config()` as-is                |
+| `None`                | Returns `{}` — all checks use their defaults           |
+
+### Legacy YAML config (deprecated, still supported)
+
+YAML config files still work if you have existing ones. Pass the `.yaml` path to `--config` or `config=`:
+
+```bash
+iki-dq-check --tier lite --file data.json --config config.yaml
+```
+
+```bash
+pip install -e ".[yaml]"   # pyyaml is now optional
+```
+
+---
+
+## Output
+
+### Terminal
+
+```
+══════════════════════════════════════════════════════════════
+  Pipeline  : dq_pipeline
+  Ran at    : 2026-05-25 11:48:52 UTC
+  Total     : 5 checks
+  Passed    : 2 ✅
+  Failed    : 3 ❌
+  Pass rate : 40%
+──────────────────────────────────────────────────────────────
+  ❌ [LITE][CRITICAL] NullCheck: Nulls in 1 column(s)
+       ↳ null_columns: {'age': [2]}
+  ❌ [LITE][CRITICAL] PrimaryKeyCheck: PK 'id' violations found
+       ↳ duplicate_values: [2]
+  ✅ [LITE][CRITICAL] DuplicateRowCheck: No duplicate rows found
+  ✅ [LITE][CRITICAL] DataTypeCheck: All columns pass type check
+  ❌ [LITE][CRITICAL] NumericRangeCheck: Range violations in 2 column(s)
+       ↳ violations: {'salary': [{'row': 2, 'value': -5000}]}
+══════════════════════════════════════════════════════════════
+```
+
+### JSON Report (`--output report.json`)
+
+```json
+{
+	"pipeline_name": "dq_pipeline",
+	"ran_at": "2026-05-25T11:48:52+00:00",
+	"success_rate": 0.4,
+	"total": 5,
+	"passed": 2,
+	"failed": 3,
+	"results": [
+		{
+			"check": "NullCheck",
+			"tier": "LITE",
+			"passed": false,
+			"severity": "CRITICAL",
+			"message": "Nulls in 1 column(s)",
+			"details": {
+				"null_columns": { "age": [2] },
+				"total": 1
+			}
+		}
+	]
+}
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning                                             |
+| ---- | --------------------------------------------------- |
+| `0`  | All checks passed (or only WARNING / INFO failures) |
+| `1`  | At least one CRITICAL check failed                  |
+
+Use in CI/CD pipelines:
+
+```bash
+iki-dq-check --tier lite --file data.json --config sample_config.py \
+  || echo "❌ Quality gate failed — pipeline blocked"
+```
+
+---
+
+## Severity Levels
+
+Each check has a fixed severity that controls the exit code:
+
+| Severity   | Checks                                | Exit on failure |
+| ---------- | ------------------------------------- | --------------- |
+| `CRITICAL` | Most checks — data integrity issues   | Yes — exits `1` |
+| `WARNING`  | Domain, regex, outlier, volume checks | No — exits `0`  |
+| `INFO`     | `DistributionCheck` (stats only)      | No — exits `0`  |
+
+---
+
+## Running Tests
+
+Tests are split by concern and live in `tests/`. Each file mirrors the module it covers.
+
+```bash
+# Run all tests
+pytest tests/
+
+# Verbose output
+pytest tests/ -v
+
+# Filter by keyword
+pytest tests/ -k null
+pytest tests/ -k checksum
+pytest tests/ -k cli
+
+# Run a single file
+pytest tests/test_lite.py
+pytest tests/test_cli.py
+
+# Skip CLI integration tests (faster)
+pytest tests/ --ignore=tests/test_cli.py
+
+# Run only CLI integration tests
+pytest tests/test_cli.py
+```
+
+### Test file reference
+
+| File               | What it covers                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conftest.py`      | Shared fixtures, assertion helpers, sample datasets                                                                                                |
+| `test_lite.py`     | `NullCheck`, `PrimaryKeyCheck`, `DuplicateRowCheck`, `DataTypeCheck`, `NumericRangeCheck`                                                          |
+| `test_standard.py` | `RegexCheck`, `DomainCheck`, `BusinessRuleCheck`, `CrossColumnCheck`, `FreshnessCheck`, `VolumeCheck`, `OutlierCheck`, `ReferentialIntegrityCheck` |
+| `test_advanced.py` | All 12 Advanced tier checks                                                                                                                        |
+| `test_pipeline.py` | `DataQualityPipeline`, `QualityReport`, fail-fast, error resilience                                                                                |
+| `test_registry.py` | `REGISTRY`, `TIER_MAP`, tier/severity assignments, check metadata                                                                                  |
+| `test_loaders.py`  | `load_data()`, `load_config()`, `coerce()`, `resolve_config()`, `safe_eval_rule()`                                                                 |
+| `test_facade.py`   | `normalize()` for all input formats, `check()`, `RichQualityReport`, `DQConfig` loading                                                            |
+| `test_cli.py`      | Full CLI integration via subprocess (exit codes, flags, output)                                                                                    |
+
+Expected output:
+
+```
+tests/test_lite.py       ........  PASSED
+tests/test_standard.py   ........  PASSED
+tests/test_advanced.py   ............  PASSED
+tests/test_pipeline.py   ...........  PASSED
+tests/test_registry.py   .........  PASSED
+tests/test_loaders.py    ...............  PASSED
+tests/test_facade.py     ................  PASSED
+tests/test_cli.py        ....................  PASSED
+```
+
+---
+
+## Facade — Library & Notebook API
+
+`src/Iki_DQ_Check/facade.py` is the single-entry-point API for using the framework as a library. It accepts every data format a data engineer works with and normalizes it to the core's `list[dict]` format automatically.
+
+### Supported input formats
+
+| Format                    | Example                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `pandas.DataFrame`        | `check(df, tier="lite")`                                  |
+| `polars.DataFrame`        | `check(pl_df, tier="lite")`                               |
+| `polars.LazyFrame`        | `check(pl.scan_parquet("data.parquet"), tier="lite")`     |
+| `pyarrow.Table`           | `check(arrow_table, tier="lite")`                         |
+| `duckdb.DuckDBPyRelation` | `check(conn.sql("SELECT * FROM t"), tier="lite")`         |
+| Parquet file path         | `check("data.parquet", tier="lite")`                      |
+| CSV file path             | `check("data.csv", tier="lite")`                          |
+| JSON file path            | `check("data.json", tier="lite")`                         |
+| SQL + SQLAlchemy engine   | `check("SELECT * FROM t", engine=engine, tier="lite")`    |
+| SQL + SQLite path         | `check("SELECT * FROM t", db="mydb.sqlite", tier="lite")` |
+| `list[dict]` (native)     | `check([{"id": 1, ...}], tier="lite")`                    |
+
+### Import
+
+```python
+# Top-level shortcut (re-exported from __init__.py)
+from Iki_DQ_Check import check, check_lite, check_standard, check_advanced, normalize
+from Iki_DQ_Check import DQConfig
+
+# Explicit module import
+from Iki_DQ_Check.facade import check, normalize, RichQualityReport
+from Iki_DQ_Check.config import DQConfig
+```
+
+### check()
+
+```python
+check(
+    data,                        # any supported format (see table above)
+    tier="lite",                 # "lite" | "standard" | "advanced"
+    # -- or --
+    checks=["NullCheck", ...],   # run specific checks instead of a full tier
+    pipeline_name="my_pipeline", # shown in the report (default: "dq_pipeline")
+    fail_fast=False,             # stop after first CRITICAL failure
+    config=cfg,                  # DQConfig instance, .py path, .yaml path, or dict
+    # SQL sources
+    engine=engine,               # SQLAlchemy engine (when data is a SQL string)
+    db="mydb.sqlite",            # SQLite path / ":memory:" (when data is SQL)
+    # any check kwargs passed directly (merged with config)
+    pk_column="id",
+    ranges={"salary": (0, None)},
+)
+```
+
+### Tier shortcuts
+
+```python
+check_lite(data, **kwargs)      # 5 checks
+check_standard(data, **kwargs)  # 13 checks
+check_advanced(data, **kwargs)  # 25 checks
+```
+
+### Examples
+
+**pandas with `DQConfig`**
+
+```python
+import pandas as pd
+from Iki_DQ_Check import check, DQConfig
+
+df = pd.read_csv("orders.csv")
+
+cfg = DQConfig(
+    pk_column="order_id",
+    patterns={"email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$"},
+    allowed={"status": ["pending", "fulfilled", "cancelled"]},
+    ranges={"amount": (0, None)},
+)
+
+report = check(df, tier="standard", config=cfg)
+report.show()
+```
+
+**Polars LazyFrame — reads Parquet without loading into memory first**
+
+```python
+import polars as pl
+from Iki_DQ_Check import check_lite
+
+report = check_lite(
+    pl.scan_parquet("warehouse/orders/*.parquet"),
+    pk_column="order_id",
+)
+print(report.success_rate)
+```
+
+**DuckDB — query directly from a relation**
+
+```python
+import duckdb
+from Iki_DQ_Check import check
+from sample_config import config
+
+conn = duckdb.connect()
+report = check(
+    conn.sql("SELECT * FROM read_parquet('data/orders.parquet') WHERE dt = '2026-05-26'"),
+    tier="advanced",
+    config=config,
+)
+report.show()
+```
+
+**SQL via SQLAlchemy — works with PostgreSQL, MySQL, BigQuery, Snowflake**
+
+```python
+from sqlalchemy import create_engine
+from Iki_DQ_Check import check, DQConfig
+
+engine = create_engine("postgresql://user:pass@host/db")
+
+cfg = DQConfig(pk_column="order_id")
+report = check(
+    "SELECT * FROM public.orders WHERE created_at >= current_date",
+    engine=engine,
+    tier="standard",
+    config=cfg,
+)
+report.show()
+```
+
+**Specific checks instead of a tier**
+
+```python
+from Iki_DQ_Check import check, DQConfig
+
+cfg = DQConfig(pk_column="id", ranges={"salary": (0, 1_000_000)})
+report = check(
+    df,
+    checks=["NullCheck", "PrimaryKeyCheck", "NumericRangeCheck"],
+    config=cfg,
+)
+```
+
+**CI/CD gate**
+
+```python
+from Iki_DQ_Check import check_lite, DQConfig
+
+cfg = DQConfig(pk_column="id", ranges={"amount": (0, None)})
+report = check_lite(df, config=cfg)
+
+if report.success_rate < 1.0:
+    failed = [r.check_name for r in report.failed]
+    raise RuntimeError(f"Quality gate failed: {failed}")
+```
+
+**Export to JSON**
+
+```python
+import json
+
+with open("report.json", "w") as f:
+    json.dump(report.to_dict(), f, indent=2, default=str)
+```
+
+### Jupyter rendering
+
+In a Jupyter notebook, returning `report` as the last expression in a cell automatically renders an HTML table with a pass-rate progress bar, color-coded tier and severity badges, and inline failure details.
+
+```python
+# Auto-renders as HTML in Jupyter
+report = check(df, tier="standard", config=cfg)
+report
+```
+
+Call `.show()` to force rendering — it auto-detects the environment and prints ANSI text in a terminal.
+
+```python
+report.show()   # HTML in Jupyter, ANSI text in terminal
+```
+
+A full demo covering every supported format is in `dq_facade_demo.ipynb`.
+
+### normalize()
+
+Converts any supported format to `list[dict]` — useful for inspecting what the facade feeds into the pipeline:
+
+```python
+from Iki_DQ_Check import normalize
+
+rows = normalize("orders.parquet")
+rows = normalize(pl_df)
+rows = normalize("SELECT * FROM t", engine=engine)
+
+print(rows[0])  # {'id': 1, 'name': 'Alice', ...}
+```
+
+### Introspection helpers
+
+```python
+from Iki_DQ_Check.facade import list_checks, supported_formats
+
+list_checks()        # prints all 25 checks grouped by tier
+supported_formats()  # prints the full format support table
+```
+
+---
+
+## Adding a Custom Check
+
+```python
+# my_checks.py
+from Iki_DQ_Check.core.base import DataCheck, CheckTier, Severity
+
+class CorporateEmailCheck(DataCheck):
+    tier     = CheckTier.STANDARD
+    severity = Severity.CRITICAL
+
+    ALLOWED_DOMAINS = {"corp.com", "subsidiary.io"}
+
+    def run(self, data, email_column="email", **_):
+        bad = [
+            {"row": i, "value": r.get(email_column)}
+            for i, r in enumerate(data)
+            if "@" not in str(r.get(email_column, ""))
+            or str(r.get(email_column, "")).split("@")[-1]
+               not in self.ALLOWED_DOMAINS
+        ]
+        if bad:
+            return self._fail(f"{len(bad)} non-corporate email(s)", violations=bad)
+        return self._pass("All emails from approved domains")
+```
+
+Register it in `src/Iki_DQ_Check/core/pipeline.py`:
+
+```python
+from my_checks import CorporateEmailCheck
+
+REGISTRY["CorporateEmailCheck"] = CorporateEmailCheck
+TIER_MAP["standard"].append("CorporateEmailCheck")
+```
+
+Then use it like any built-in:
+
+```bash
+iki-dq-check --check CorporateEmailCheck --file data.json --config sample_config.py
+```
+
+---
+
+## Using the Core Pipeline Directly
+
+For full control without the facade — custom orchestration, Airflow tasks, programmatic pipelines:
+
+```python
+from Iki_DQ_Check.core.pipeline import DataQualityPipeline
+from Iki_DQ_Check.checks.lite import NullCheck, PrimaryKeyCheck
+from Iki_DQ_Check.checks.standard import RegexCheck
+from Iki_DQ_Check.config import DQConfig
+
+cfg = DQConfig(
+    pk_column="order_id",
+    patterns={"email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$"},
+)
+
+pipeline = (
+    DataQualityPipeline("orders_daily")
+    .add(NullCheck())
+    .add(PrimaryKeyCheck())
+    .add(RegexCheck())
+)
+
+report = pipeline.run(data, **cfg.to_kwargs())
+
+print(report.summary())
+
+if report.success_rate < 1.0:
+    raise RuntimeError("Data quality gate failed")
+```
+
+---
+
+## License
+
+MIT

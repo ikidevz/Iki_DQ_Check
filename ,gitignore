@@ -1,0 +1,6 @@
+__pycache__/
+logs/
+bin/
+structure.py
+ARTICLE.MD
+.pytest_cache/

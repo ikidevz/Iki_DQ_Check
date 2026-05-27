@@ -1,0 +1,414 @@
+{
+  "pipeline_name": "error_report",
+  "ran_at": "2026-05-27T12:45:25.802532+00:00",
+  "success_rate": 0.0,
+  "total": 25,
+  "passed": 0,
+  "failed": 25,
+  "results": [
+    {
+      "check": "NullCheck",
+      "tier": "LITE",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Nulls in 1 column(s)",
+      "details": {
+        "null_columns": {
+          "salary": [
+            0,
+            3
+          ]
+        },
+        "total": 2
+      }
+    },
+    {
+      "check": "PrimaryKeyCheck",
+      "tier": "LITE",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "PK 'id' violations found",
+      "details": {
+        "null_pks": 0,
+        "duplicate_values": [
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "check": "DuplicateRowCheck",
+      "tier": "LITE",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "1 duplicate row group(s)",
+      "details": {
+        "duplicated_keys": [
+          "(1, None, 'UNKNOWN')"
+        ]
+      }
+    },
+    {
+      "check": "DataTypeCheck",
+      "tier": "LITE",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Type violations in 1 column(s)",
+      "details": {
+        "violations": {
+          "age": [
+            {
+              "row": 0,
+              "value": "thirty"
+            },
+            {
+              "row": 3,
+              "value": "thirty"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "NumericRangeCheck",
+      "tier": "LITE",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Range violations in 1 column(s)",
+      "details": {
+        "violations": {
+          "score": [
+            {
+              "row": 0,
+              "value": -5.0
+            },
+            {
+              "row": 3,
+              "value": -5.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "RegexCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Regex violations in 1 column(s)",
+      "details": {
+        "violations": {
+          "email": [
+            {
+              "row": 0,
+              "value": "not-an-email"
+            },
+            {
+              "row": 3,
+              "value": "not-an-email"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "DomainCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Domain violations in 2 column(s)",
+      "details": {
+        "violations": {
+          "status": [
+            {
+              "row": 0,
+              "value": "deleted"
+            },
+            {
+              "row": 3,
+              "value": "deleted"
+            }
+          ],
+          "dept": [
+            {
+              "row": 0,
+              "value": "UNKNOWN"
+            },
+            {
+              "row": 3,
+              "value": "UNKNOWN"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "BusinessRuleCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "5 business rule(s) failed",
+      "details": {
+        "violations": {
+          "salary_positive": [
+            0,
+            3
+          ],
+          "name_not_empty": [
+            0,
+            3
+          ],
+          "age_is_adult": [
+            "row 0: '>=' not supported between instances of 'str' and 'int'",
+            "row 3: '>=' not supported between instances of 'str' and 'int'"
+          ],
+          "score_in_range": [
+            0,
+            3
+          ],
+          "status_not_deleted": [
+            0,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "check": "CrossColumnCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Cross-column consistency violated",
+      "details": {
+        "violations": {
+          "end_after_start": [
+            1
+          ]
+        }
+      }
+    },
+    {
+      "check": "FreshnessCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Data is 720.0h old (max: 24.0h)",
+      "details": {
+        "delay_hours": 720.0
+      }
+    },
+    {
+      "check": "VolumeCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Row count 4 outside [9999, 1000000]",
+      "details": {
+        "actual": 4,
+        "min": 9999,
+        "max": 1000000
+      }
+    },
+    {
+      "check": "OutlierCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Unexpected error: could not convert string to float: 'thirty'",
+      "details": {}
+    },
+    {
+      "check": "ReferentialIntegrityCheck",
+      "tier": "STANDARD",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "2 orphaned FK(s) in 'dept'",
+      "details": {
+        "violations": [
+          {
+            "row": 0,
+            "value": "UNKNOWN"
+          },
+          {
+            "row": 3,
+            "value": "UNKNOWN"
+          }
+        ]
+      }
+    },
+    {
+      "check": "SchemaDriftCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Schema drift detected",
+      "details": {
+        "added": [
+          "hacked_col"
+        ],
+        "removed": []
+      }
+    },
+    {
+      "check": "DuplicateFileIngestionCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "1 file(s) ingested multiple times",
+      "details": {
+        "duplicated_files": [
+          "batch_001.csv"
+        ]
+      }
+    },
+    {
+      "check": "HierarchyCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "2 hierarchy violation(s)",
+      "details": {
+        "violations": [
+          {
+            "region": "APAC",
+            "dept": "UNKNOWN",
+            "row": 0
+          },
+          {
+            "region": "APAC",
+            "dept": "UNKNOWN",
+            "row": 3
+          }
+        ]
+      }
+    },
+    {
+      "check": "AuditColumnCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Audit columns missing in 1 column(s)",
+      "details": {
+        "missing": {
+          "created_by": [
+            0,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "check": "CrossSystemConsistencyCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Count mismatch: source=4, target=999 (24875.0%)",
+      "details": {
+        "source_count": 4,
+        "target_count": 999,
+        "diff_pct": 248.75
+      }
+    },
+    {
+      "check": "ReferenceDataCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "2 unknown code(s) in 'status'",
+      "details": {
+        "violations": [
+          {
+            "row": 0,
+            "code": "deleted"
+          },
+          {
+            "row": 3,
+            "code": "deleted"
+          }
+        ]
+      }
+    },
+    {
+      "check": "ChecksumCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Checksum mismatch",
+      "details": {
+        "source_hash": "bc15a2758624851327ef36d4164c5e23d2e1e94b0917bb9b04545c6006722d31",
+        "target_hash": "b75a94b58cf6b847ed9ae7f4a544bafca2c7ae9e559df04efb4597723f606ca1"
+      }
+    },
+    {
+      "check": "DistributionCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "Unexpected error: could not convert string to float: 'thirty'",
+      "details": {}
+    },
+    {
+      "check": "NegativeValueCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Negative values in 1 column(s)",
+      "details": {
+        "violations": {
+          "score": [
+            {
+              "row": 0,
+              "value": -5.0
+            },
+            {
+              "row": 3,
+              "value": -5.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "PercentageTotalCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "Percentages sum to 120.00, expected 100.0",
+      "details": {
+        "total": 120.0,
+        "expected": 100.0,
+        "diff": 20.0
+      }
+    },
+    {
+      "check": "StringLengthCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "WARNING",
+      "message": "String length violations in 1 column(s)",
+      "details": {
+        "violations": {
+          "name": [
+            {
+              "row": 2,
+              "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+              "length": 150
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "CompletenessCheck",
+      "tier": "ADVANCED",
+      "passed": false,
+      "severity": "CRITICAL",
+      "message": "1 partition(s) missing",
+      "details": {
+        "missing": [
+          "Fin"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,495 @@
+Metadata-Version: 2.4
+Name: iki-dq-check
+Version: 0.1.0
+Summary: A production-grade Python library and CLI tool for validating data quality
+Author: IkiDevz
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: yaml
+Requires-Dist: pyyaml>=6.0; extra == "yaml"
+Provides-Extra: pandas
+Requires-Dist: pandas>=2.0; extra == "pandas"
+Provides-Extra: polars
+Requires-Dist: polars>=0.20; extra == "polars"
+Provides-Extra: pyarrow
+Requires-Dist: pyarrow>=14.0; extra == "pyarrow"
+Provides-Extra: duckdb
+Requires-Dist: duckdb>=0.10; extra == "duckdb"
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy>=2.0; extra == "sqlalchemy"
+Provides-Extra: jupyter
+Requires-Dist: ipython>=8.0; extra == "jupyter"
+Provides-Extra: all-formats
+Requires-Dist: pandas>=2.0; extra == "all-formats"
+Requires-Dist: polars>=0.20; extra == "all-formats"
+Requires-Dist: pyarrow>=14.0; extra == "all-formats"
+Requires-Dist: duckdb>=0.10; extra == "all-formats"
+Requires-Dist: sqlalchemy>=2.0; extra == "all-formats"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pandas>=2.0; extra == "dev"
+Requires-Dist: pyarrow>=14.0; extra == "dev"
+
+# Iki_DQ_Check
+
+A production-grade Python library and CLI tool for validating data quality across 25 checks, organized into 3 progressive tiers — **Lite**, **Standard**, and **Advanced**.
+
+Zero heavy dependencies. Works with JSON and CSV. CI/CD ready.
+
+---
+
+## Requirements
+
+- Python 3.10+
+- PyYAML
+- pytest (for running tests)
+
+```bash
+pip install pyyaml pytest
+```
+
+---
+
+## Project Structure
+
+```
+data_quality/                  # Core package
+│
+├── core/
+│   ├── __init__.py            # Re-exports public API
+│   ├── base.py                # DataCheck, CheckResult, Severity, CheckTier, QualityReport
+│   └── pipeline.py            # DataQualityPipeline, REGISTRY, TIER_MAP
+│
+├── checks/
+│   ├── __init__.py            # Imports all check classes
+│   ├── lite.py                # NullCheck, PrimaryKeyCheck, DuplicateRowCheck,
+│   │                          #   DataTypeCheck, NumericRangeCheck
+│   ├── standard.py            # RegexCheck, DomainCheck, BusinessRuleCheck,
+│   │                          #   CrossColumnCheck, FreshnessCheck, VolumeCheck,
+│   │                          #   OutlierCheck, ReferentialIntegrityCheck
+│   └── advanced.py            # SchemaDriftCheck, DuplicateFileIngestionCheck,
+│                              #   HierarchyCheck, AuditColumnCheck,
+│                              #   CrossSystemConsistencyCheck, ReferenceDataCheck,
+│                              #   ChecksumCheck, DistributionCheck,
+│                              #   NegativeValueCheck, PercentageTotalCheck,
+│                              #   StringLengthCheck, CompletenessCheck
+│
+├── cli/
+│   ├── __init__.py
+│   ├── args.py                # build_parser()
+│   ├── loaders.py             # load_data(), load_config(), coerce(),
+│   │                          #   resolve_config(), safe_eval_rule()
+│   ├── output.py              # print_summary(), print_list(), save_report(),
+│   │                          #   ANSI color helpers
+│   └── runner.py              # build_pipeline(), die(), main()
+│
+├── config/
+│   ├── __init__.py
+│   ├── schema.py              # Typed ConfigSchema dataclass
+│   └── resolver.py            # Config transformation and rule compilation
+│
+└── __init__.py                # Top-level public re-exports
+
+tests/
+├── conftest.py                # Shared fixtures, helpers, sample datasets
+├── test_lite.py               # Lite tier checks (5 checks)
+├── test_standard.py           # Standard tier checks (8 checks)
+├── test_advanced.py           # Advanced tier checks (12 checks)
+├── test_pipeline.py           # Pipeline orchestration and QualityReport
+├── test_registry.py           # REGISTRY, TIER_MAP, and check metadata
+├── test_loaders.py            # Data/config loading and rule compilation
+└── test_cli.py                # CLI integration tests (subprocess)
+
+dq_cli.py                      # Thin entry point — delegates to cli/runner.py
+config.yaml                    # All check arguments in one place
+sample_data.json               # Sample JSON dataset
+sample_data.csv                # Sample CSV dataset
+```
+
+---
+
+## Quick Start
+
+```bash
+# See all available checks
+python dq_cli.py --list
+
+# Run Lite tier
+python dq_cli.py --tier lite --file data.json --config config.yaml
+
+# Run Standard tier (includes Lite)
+python dq_cli.py --tier standard --file data.json --config config.yaml
+
+# Run Advanced tier (includes Lite + Standard)
+python dq_cli.py --tier advanced --file data.json --config config.yaml
+
+# Run a single check
+python dq_cli.py --check NullCheck --file data.json --config config.yaml
+
+# Run multiple specific checks
+python dq_cli.py --check NullCheck --check RegexCheck --check ChecksumCheck \
+                 --file data.json --config config.yaml
+
+# Save a JSON report
+python dq_cli.py --tier advanced --file data.json --config config.yaml \
+                 --output report.json
+
+# Stop on first critical failure
+python dq_cli.py --tier lite --file data.json --config config.yaml --fail-fast
+
+# Use a CSV file instead
+python dq_cli.py --tier standard --file data.csv --config config.yaml
+
+# Custom pipeline name
+python dq_cli.py --tier lite --file data.json --config config.yaml \
+                 --pipeline-name orders_daily
+```
+
+---
+
+## Tiers
+
+Tiers are **cumulative** — each tier includes everything below it.
+`--tier` accepts exactly one value per run.
+
+```
+--tier lite       →  5 checks   (Lite only)
+--tier standard   → 13 checks   (Lite + Standard)
+--tier advanced   → 25 checks   (Lite + Standard + Advanced)
+```
+
+### Lite — 5 checks
+
+The foundation. Catches the most common data problems.
+
+| Check               | What It Catches                            |
+| ------------------- | ------------------------------------------ |
+| `NullCheck`         | NULL or None values in any column          |
+| `PrimaryKeyCheck`   | Duplicate or null primary keys             |
+| `DuplicateRowCheck` | Fully identical rows                       |
+| `DataTypeCheck`     | Values that can't be cast to expected type |
+| `NumericRangeCheck` | Numbers outside `[min, max]` bounds        |
+
+### Standard — 8 additional checks (13 total)
+
+For production pipelines with SLAs and business rules.
+
+| Check                       | What It Catches                                      |
+| --------------------------- | ---------------------------------------------------- |
+| `RegexCheck`                | Values that fail a regex pattern (e.g. email format) |
+| `DomainCheck`               | Values outside an allowed set (e.g. status codes)    |
+| `BusinessRuleCheck`         | Row-level business logic violations                  |
+| `CrossColumnCheck`          | Relationships between columns (e.g. end > start)     |
+| `FreshnessCheck`            | Data arriving outside expected time window           |
+| `VolumeCheck`               | Row counts outside expected range                    |
+| `OutlierCheck`              | Statistical outliers via IQR method                  |
+| `ReferentialIntegrityCheck` | Foreign key values not in parent table               |
+
+### Advanced — 12 additional checks (25 total)
+
+For compliance, financial, and cross-system critical pipelines.
+
+| Check                         | What It Catches                                 |
+| ----------------------------- | ----------------------------------------------- |
+| `SchemaDriftCheck`            | Added or removed columns vs expected schema     |
+| `DuplicateFileIngestionCheck` | Same file loaded more than once                 |
+| `HierarchyCheck`              | Parent → child hierarchy violations             |
+| `AuditColumnCheck`            | Missing `created_by`, `updated_at`, etc.        |
+| `CrossSystemConsistencyCheck` | Row count mismatch between source and target    |
+| `ReferenceDataCheck`          | Unknown codes in master / reference data        |
+| `ChecksumCheck`               | SHA-256 hash mismatch between source and target |
+| `DistributionCheck`           | Mean, median, stddev report (informational)     |
+| `NegativeValueCheck`          | Negative values where not allowed               |
+| `PercentageTotalCheck`        | Percentages that don't sum to 100               |
+| `StringLengthCheck`           | Strings outside min/max length bounds           |
+| `CompletenessCheck`           | Missing expected partition keys or dates        |
+
+---
+
+## Config File
+
+All check arguments live in `config.yaml`. Each check reads only what it needs — extra keys are silently ignored.
+
+```yaml
+# Lite
+pk_column: id
+schema:
+  age: int
+  salary: float
+ranges:
+  age: [0, 120]
+  salary: [0, 1000000]
+
+# Standard
+patterns:
+  email: "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+
+allowed:
+  status: [active, inactive]
+
+business_rules_expr:
+  salary_positive: "salary > 0"
+  name_not_empty: "name != ''"
+
+cross_rules_expr:
+  working_age: "age >= 18 and age <= 65"
+
+columns: [salary, age]
+expected_min: 1
+expected_max: 10000
+fk_column: dept
+reference_values: [Eng, HR, Fin, Ops]
+latest_timestamp: "now"
+max_delay_hours: 24
+
+# Advanced
+expected_columns:
+  - id
+  - name
+  - age
+  - salary
+  - email
+  - status
+  - dept
+audit_columns: [created_by, created_at, updated_by, updated_at]
+source_count: 1000
+target_count: 998
+source_payload: "snapshot-v1"
+target_payload: "snapshot-v1"
+code_column: status
+valid_codes: [active, inactive, pending]
+percentage_column: pct
+length_rules:
+  name: [1, 50]
+  email: [5, 100]
+partition_column: dept
+expected_partitions: [Eng, HR, Fin]
+valid_hierarchy:
+  Asia: [Japan, India, China]
+  Europe: [Germany, France, UK]
+```
+
+### Business Rule Expressions
+
+Rules in `business_rules_expr` and `cross_rules_expr` are safe string expressions evaluated with Python's `ast` module — no `eval()` used. Compilation happens in `cli/loaders.py` via `safe_eval_rule()`.
+
+Supported operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`, `not`
+
+```yaml
+business_rules_expr:
+  total_matches_sum: "order_total == item_total"
+  discount_in_range: "discount >= 0 and discount <= 100"
+  name_not_empty: "name != ''"
+```
+
+---
+
+## Output
+
+### Terminal
+
+```
+══════════════════════════════════════════════════════════════
+  Pipeline  : dq_pipeline
+  Ran at    : 2026-05-25 11:48:52 UTC
+  Total     : 5 checks
+  Passed    : 2 ✅
+  Failed    : 3 ❌
+  Pass rate : 40%
+──────────────────────────────────────────────────────────────
+  ❌ [LITE][CRITICAL] NullCheck: Nulls in 1 column(s)
+       ↳ null_columns: {'age': [2]}
+  ❌ [LITE][CRITICAL] PrimaryKeyCheck: PK 'id' violations found
+       ↳ duplicate_values: [2]
+  ✅ [LITE][CRITICAL] DuplicateRowCheck: No duplicate rows found
+  ✅ [LITE][CRITICAL] DataTypeCheck: All columns pass type check
+  ❌ [LITE][CRITICAL] NumericRangeCheck: Range violations in 2 column(s)
+       ↳ violations: {'salary': [{'row': 2, 'value': -5000}]}
+══════════════════════════════════════════════════════════════
+```
+
+### JSON Report (`--output report.json`)
+
+```json
+{
+	"pipeline_name": "dq_pipeline",
+	"ran_at": "2026-05-25T11:48:52+00:00",
+	"success_rate": 0.4,
+	"total": 5,
+	"passed": 2,
+	"failed": 3,
+	"results": [
+		{
+			"check": "NullCheck",
+			"tier": "LITE",
+			"passed": false,
+			"severity": "CRITICAL",
+			"message": "Nulls in 1 column(s)",
+			"details": {
+				"null_columns": { "age": [2] },
+				"total": 1
+			}
+		}
+	]
+}
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning                                             |
+| ---- | --------------------------------------------------- |
+| `0`  | All checks passed (or only WARNING / INFO failures) |
+| `1`  | At least one CRITICAL check failed                  |
+
+Use in CI/CD pipelines:
+
+```bash
+python dq_cli.py --tier lite --file data.json --config config.yaml \
+  || echo "❌ Quality gate failed — pipeline blocked"
+```
+
+---
+
+## Severity Levels
+
+Each check has a fixed severity that controls the exit code:
+
+| Severity   | Checks                                | Exit on failure |
+| ---------- | ------------------------------------- | --------------- |
+| `CRITICAL` | Most checks — data integrity issues   | Yes — exits `1` |
+| `WARNING`  | Domain, regex, outlier, volume checks | No — exits `0`  |
+| `INFO`     | `DistributionCheck` (stats only)      | No — exits `0`  |
+
+---
+
+## Running Tests
+
+Tests are split by concern and live in `tests/`. Each file mirrors the module it covers.
+
+```bash
+# Run all tests
+pytest tests/
+
+# Verbose output
+pytest tests/ -v
+
+# Filter by keyword
+pytest tests/ -k null
+pytest tests/ -k checksum
+pytest tests/ -k cli
+
+# Run a single file
+pytest tests/test_lite.py
+pytest tests/test_cli.py
+
+# Run only unit tests (skip CLI subprocess tests — faster)
+pytest tests/ --ignore=tests/test_cli.py
+
+# Run only CLI integration tests
+pytest tests/test_cli.py
+```
+
+### Test file reference
+
+| File               | What it covers                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conftest.py`      | Shared fixtures, assertion helpers, sample datasets                                                                                                |
+| `test_lite.py`     | `NullCheck`, `PrimaryKeyCheck`, `DuplicateRowCheck`, `DataTypeCheck`, `NumericRangeCheck`                                                          |
+| `test_standard.py` | `RegexCheck`, `DomainCheck`, `BusinessRuleCheck`, `CrossColumnCheck`, `FreshnessCheck`, `VolumeCheck`, `OutlierCheck`, `ReferentialIntegrityCheck` |
+| `test_advanced.py` | All 12 Advanced tier checks                                                                                                                        |
+| `test_pipeline.py` | `DataQualityPipeline`, `QualityReport`, fail-fast, error resilience                                                                                |
+| `test_registry.py` | `REGISTRY`, `TIER_MAP`, tier/severity assignments, check metadata                                                                                  |
+| `test_loaders.py`  | `load_data()`, `load_config()`, `coerce()`, `resolve_config()`, `safe_eval_rule()`                                                              |
+| `test_cli.py`      | Full CLI integration via subprocess (exit codes, flags, output)                                                                                    |
+
+Expected output:
+
+```
+tests/test_lite.py       ........  PASSED
+tests/test_standard.py   ........  PASSED
+tests/test_advanced.py   ............  PASSED
+tests/test_pipeline.py   ...........  PASSED
+tests/test_registry.py   .........  PASSED
+tests/test_loaders.py    ...............  PASSED
+tests/test_cli.py        ....................  PASSED
+```
+
+---
+
+## Adding a Custom Check
+
+```python
+# my_checks.py
+from data_quality.core.base import DataCheck, CheckTier, Severity
+
+class CorporateEmailCheck(DataCheck):
+    tier     = CheckTier.STANDARD
+    severity = Severity.CRITICAL
+
+    ALLOWED_DOMAINS = {"corp.com", "subsidiary.io"}
+
+    def run(self, data, email_column="email", **_):
+        bad = [
+            {"row": i, "value": r.get(email_column)}
+            for i, r in enumerate(data)
+            if "@" not in str(r.get(email_column, ""))
+            or str(r.get(email_column, "")).split("@")[-1]
+               not in self.ALLOWED_DOMAINS
+        ]
+        if bad:
+            return self._fail(f"{len(bad)} non-corporate email(s)", violations=bad)
+        return self._pass("All emails from approved domains")
+```
+
+Register it in `data_quality/core/pipeline.py`:
+
+```python
+from my_checks import CorporateEmailCheck
+
+REGISTRY["CorporateEmailCheck"] = CorporateEmailCheck
+TIER_MAP["standard"].append("CorporateEmailCheck")
+```
+
+Then use it like any built-in:
+
+```bash
+python dq_cli.py --check CorporateEmailCheck --file data.json --config config.yaml
+```
+
+---
+
+## Using the Framework as a Library
+
+The CLI is a thin adapter over the core package. You can import and use the framework directly in any pipeline, notebook, or orchestrator:
+
+```python
+from data_quality.core.pipeline import DataQualityPipeline, REGISTRY, TIER_MAP
+from data_quality.checks.lite import NullCheck, PrimaryKeyCheck
+from data_quality.checks.standard import RegexCheck
+
+pipeline = (
+    DataQualityPipeline("orders_daily")
+    .add(NullCheck())
+    .add(PrimaryKeyCheck())
+    .add(RegexCheck())
+)
+
+report = pipeline.run(
+    data,
+    pk_column="order_id",
+    patterns={"email": r"^[^@\s]+@[^@\s]+\.[^@\s]+$"},
+)
+
+print(report.summary())
+
+if report.success_rate < 1.0:
+    raise RuntimeError("Data quality gate failed")
+```
+
+---
+
+## License
+
+MIT

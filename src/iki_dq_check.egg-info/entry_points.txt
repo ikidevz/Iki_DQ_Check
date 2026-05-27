@@ -1,0 +1,2 @@
+[console_scripts]
+iki-dq-check = Iki_DQ_Check.app:main

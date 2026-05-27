@@ -1,0 +1,52 @@
+[
+	{
+		"id": 1,
+		"name": "Alice Johnson",
+		"age": 30,
+		"salary": 50000,
+		"email": "alice@example.com",
+		"status": "active",
+		"dept": "Engineering",
+		"created_at": "2025-01-10"
+	},
+	{
+		"id": 2,
+		"name": "Bob Smith",
+		"age": 25,
+		"salary": 60000,
+		"email": "bob.smith@example.com",
+		"status": "inactive",
+		"dept": "HR",
+		"created_at": "2025-02-15"
+	},
+	{
+		"id": 3,
+		"name": "Carol Lee",
+		"age": 35,
+		"salary": 55000,
+		"email": "carol.lee@example.com",
+		"status": "active",
+		"dept": "Finance",
+		"created_at": "2025-03-20"
+	},
+	{
+		"id": 4,
+		"name": "David Kim",
+		"age": 28,
+		"salary": 52000,
+		"email": "david.kim@example.com",
+		"status": "active",
+		"dept": "Engineering",
+		"created_at": "2025-04-05"
+	},
+	{
+		"id": 5,
+		"name": "Eva Martinez",
+		"age": 32,
+		"salary": 58000,
+		"email": "eva.martinez@example.com",
+		"status": "inactive",
+		"dept": "Marketing",
+		"created_at": "2025-05-01"
+	}
+]

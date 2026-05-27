@@ -1,0 +1,6 @@
+id,name,age,salary,email,status,dept,created_at
+1,Alice Johnson,30,50000,alice@example.com,active,Engineering,2025-01-10
+2,Bob Smith,25,60000,bob.smith@example.com,inactive,HR,2025-02-15
+3,Carol Lee,35,55000,carol.lee@example.com,active,Finance,2025-03-20
+4,David Kim,28,52000,david.kim@example.com,active,Engineering,2025-04-05
+5,Eva Martinez,32,58000,eva.martinez@example.com,inactive,Marketing,2025-05-01
