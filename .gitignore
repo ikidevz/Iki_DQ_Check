@@ -4,3 +4,4 @@ bin/
 structure.py
 ARTICLE.MD
 .pytest_cache/
+dist/

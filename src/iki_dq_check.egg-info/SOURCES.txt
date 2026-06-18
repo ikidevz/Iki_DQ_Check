@@ -1,7 +1,9 @@
+LICENSE
 README.MD
 pyproject.toml
 src/Iki_DQ_Check/__init__.py
 src/Iki_DQ_Check/app.py
+src/Iki_DQ_Check/config.py
 src/Iki_DQ_Check/facade.py
 src/Iki_DQ_Check/checks/__init__.py
 src/Iki_DQ_Check/checks/advanced.py
