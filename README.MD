@@ -23,22 +23,7 @@ The core framework runs on Python stdlib only. PyYAML is no longer required.
 
 ```bash
 # Core only
-pip install -e .
-
-# With dev tools and test deps
-pip install -e ".[dev]"
-
-# With specific data format support
-pip install -e ".[pandas]"
-pip install -e ".[polars]"
-pip install -e ".[duckdb]"
-pip install -e ".[sqlalchemy]"
-
-# Everything
-pip install -e ".[dev,all-formats,jupyter]"
-
-# Legacy YAML config support (optional, not recommended)
-pip install -e ".[yaml]"
+pip install iki-dq-check
 ```
 
 ### Optional — facade input formats

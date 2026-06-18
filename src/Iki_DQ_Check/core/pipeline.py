@@ -28,7 +28,6 @@ from ..checks import (
 
 )
 from typing import Any
-import sys
 
 REGISTRY: dict[str, type[DataCheck]] = {
     # LITE
